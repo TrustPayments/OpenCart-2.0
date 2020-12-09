@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<code>TrustPaymentsEvents</code>
+	<name>trustpayments events: handle events unavailable in Opencart 2.0.x and 2.1.x.
+	</name>
+	<version>1.0.1</version>
+	<author>Customweb GmbH</author>
+	<link>http://github.com/trustpayments-payment/opencart</link>
+	<file path="catalog/controller/common/header.php">
+		<operation>
+			<search><![CDATA[
+		$data['cart'] = $this->load->controller('common/cart');
+            ]]></search>
+			<add position="after"><![CDATA[
+		try{
+			$this->load->controller('extension/trustpayments/event/includeDeviceIdentifier');
+			
+			\TrustPayments\Entity\Cron::cleanUpHangingCrons($this->registry);
+			\TrustPayments\Entity\Cron::insertNewPendingCron($this->registry);
+			$trustpayments_cron_token = \TrustPayments\Entity\Cron::getCurrentSecurityTokenForPendingCron($this->registry);
+			if($trustpayments_cron_token) {
+				$data['trustpayments_cron'] = \TrustPaymentsVersionHelper::createUrl($this->url, 'extension/trustpayments/cron', array('security_token' => $trustpayments_cron_token), $this->config->get('config_secure'));
+			}
+		} catch (Exception $e) { \TrustPaymentsHelper::instance($this->registry)->log($e->getMessage()); }
+            ]]></add>
+		</operation>
+	</file>
+	<file path="catalog/view/theme/*/template/common/header.tpl">
+		<operation>
+			<search><![CDATA[
+		<head>
+            ]]></search>
+			<add position="after"><![CDATA[
+		<?php if (isset($trustpayments_cron)) : ?> <img src="<?php echo $trustpayments_cron; ?>" style="display:none;"> <?php endif; ?>
+            ]]></add>
+		</operation>
+	</file>
+	<file path="admin/controller/extension/modification.php">
+		<operation>
+			<search><![CDATA[
+		// Just after modifications are complete, if config settings say maintenance mode is on AND is different org state, then turn it back on
+            ]]></search>
+			<add position="before"><![CDATA[
+		$this->load->controller('extension/trustpayments/event/createMethodConfigurationFiles');
+            ]]></add>
+		</operation>
+	</file>
+</modification>
